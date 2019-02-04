@@ -7,12 +7,15 @@ from discount.models import (
 class OrderProductItemInline(admin.TabularInline):
     model = OrderItem
     raw_id_fields = ['product']
+    readonly_fields = ['price', 'discount']
 
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     inlines = [OrderProductItemInline]
-
+    list_display = ['customer', 'paid', 'discount', 'total_cost', 'created', 'updated']
+    readonly_fields = ['created', 'updated', 'total_cost']
+    
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):

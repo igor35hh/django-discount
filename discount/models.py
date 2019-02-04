@@ -7,7 +7,7 @@ from decimal import Decimal
 class CustomerManager(models.Manager):
     
     '''
-    queryset contains filed max_discount, we can use it for getting discount,
+    queryset contains field max_discount, we can use it for getting discount,
     when creating order and showing discount in list, make sorting and filtering
     '''
         
@@ -80,7 +80,7 @@ class Brand(models.Model):
 class ProductManager(models.Manager):
     
     '''
-    queryset contains fileds product_discount, brand_discount, category_discount, max_discount, discount_price we can use them for getting discounts,
+    queryset contains fields product_discount, brand_discount, category_discount, max_discount, discount_price we can use them for getting discounts,
     when creating order and showing discounts in list, make sorting and filtering
     '''
         
@@ -168,21 +168,6 @@ class Product(models.Model):
     
     def __str__(self):
         return self.name
-     
-
-    #def get_discounts(self):
-        #all_fields = self._meta.get_fields()
-        #discounts = []
-        #for field in all_fields:
-            #if field.get_internal_type() == 'ForeignKey':
-                #field_ref = getattr(self, field.name)
-                #if hasattr(field_ref, 'discount'):
-                    #discounts.append(field_ref.discount)
-
-        #return discounts
-
-    #def get_max_discount(self):
-        #return self.id #max(self.get_discounts())
   
   
 class Discount(models.Model):
@@ -247,15 +232,24 @@ class Order(models.Model):
     def __str__(self):
         return 'Order {}'.format(self.id)
 
-    def get_total_cost(self):
+    def total_cost(self):
         total_cost = sum(item.get_cost() for item in self.items.all())
-        return total_cost - total_cost * (self.discount / Decimal('100')) 
+        return total_cost - total_cost * (self.discount / Decimal('100'))
+    
+    def save(self, force_insert=False, force_update=False, using=None, 
+        update_fields=None):
+        
+        cust = Customer.objects.objects_discount().filter(id=self.customer.id)
+        if cust:
+            self.discount = cust[0].max_discount
+        
+        return models.Model.save(self, force_insert=force_insert, force_update=force_update, using=using, update_fields=update_fields)
+    
 
-  
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='order_items')
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
     discount = models.IntegerField(default=0,
                                    validators=[MinValueValidator(0),
@@ -266,4 +260,14 @@ class OrderItem(models.Model):
 
     def get_cost(self):
         total_cost =  self.price * self.quantity 
-        return total_cost - total_cost * (self.discount / Decimal('100'))  
+        return total_cost - total_cost * (self.discount / Decimal('100'))
+    
+    def save(self, force_insert=False, force_update=False, using=None, 
+        update_fields=None):
+        
+        prod = Product.objects.objects_discount().filter(id=self.product.id)
+        if prod:
+            self.discount = prod[0].max_discount
+            self.price = prod[0].price
+        
+        return models.Model.save(self, force_insert=force_insert, force_update=force_update, using=using, update_fields=update_fields)  
